@@ -96,7 +96,7 @@ class Blob:
             pass  # assume uncompressed but could be unrecognized compression
         else:
             self._pos += len(prefix)
-            blob_size = self.read_value('uint64')
+            blob_size = self.read_value(dtype='uint32')
             blob = compression[prefix](self._blob[self._pos:])
             assert len(blob) == blob_size
             self._blob = blob
@@ -191,8 +191,8 @@ class Blob:
         raise DataJointError("Packing object of type %s currently not supported!" % type(obj))
 
     def read_array(self):
-        n_dims = int(self.read_value('uint64'))
-        shape = self.read_value('uint64', count=n_dims)
+        n_dims = int(self.read_value(dtype='uint32'))
+        shape = self.read_value(dtype='uint32', count=n_dims)
         n_elem = np.prod(shape, dtype=int)
         dtype_id, is_complex = self.read_value('uint32', 2)
         dtype = dtype_list[dtype_id]
@@ -245,7 +245,7 @@ class Blob:
         """
         Serialize an np.ndarray with fields, including recarrays
         """
-        n_fields = self.read_value('uint32')
+        n_fields = self.read_value(dtype='uint32')
         if not n_fields:
             return np.array(None)  # empty array
         field_names = [self.read_zero_terminated_string() for _ in range(n_fields)]
@@ -357,17 +357,17 @@ class Blob:
 
     def read_struct(self):
         """deserialize matlab stuct"""
-        n_dims = self.read_value()
-        shape = self.read_value(count=n_dims)
+        n_dims = self.read_value(dtype='uint32')
+        shape = self.read_value(dtype='uint32', count=n_dims)
         n_elem = np.prod(shape, dtype=int)
-        n_fields = self.read_value('uint32')
+        n_fields = self.read_value(dtype='uint32')
         if not n_fields:
             return np.array(None)  # empty array
         field_names = [self.read_zero_terminated_string() for _ in range(n_fields)]
         raw_data = [
-            tuple(self.read_blob(n_bytes=int(self.read_value('uint64'))) for _ in range(n_fields))
+            tuple(self.read_blob(n_bytes=int(self.read_value(dtype='uint32'))) for _ in range(n_fields))
             for __ in range(n_elem)]
-        data = np.array(raw_data, dtype=list(zip(field_names, repeat(object))))
+        data = np.array(raw_data, dtype=list(zip(field_names, repeat(np.object))))
         return self.squeeze(data.reshape(shape, order="F"), convert_to_scalar=False).view(MatStruct)
 
     def pack_struct(self, array):
@@ -380,10 +380,10 @@ class Blob:
 
     def read_cell_array(self):
         """ deserialize MATLAB cell array """
-        n_dims = self.read_value()
-        shape = self.read_value(count=n_dims)
+        n_dims = self.read_value(dtype='uint32')
+        shape = self.read_value(dtype='uint32', count=n_dims)
         n_elem = int(np.prod(shape))
-        result = [self.read_blob(n_bytes=self.read_value()) for _ in range(n_elem)]
+        result = [self.read_blob(n_bytes=self.read_value(dtype='uint32')) for _ in range(n_elem)]
         return (self.squeeze(np.array(result).reshape(shape, order="F"), convert_to_scalar=False)).view(MatCell)
 
     def pack_cell_array(self, array):
